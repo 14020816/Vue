@@ -1,0 +1,345 @@
+<!-- 画像一覧画面 -->
+<template>
+  <v-container fluid fill-height py-2>
+    <v-layout>
+      <picture-detail ref="pictureDetail"/>
+      <search-condition ref="searchCondition"/>
+      <v-flex lg12 xs12>
+        <v-card class="mx-2 mt-2" color="pink">
+          <v-list-tile>
+            <v-list-tile-content>
+              <v-list-tile-title v-html="flush.text"></v-list-tile-title>
+            </v-list-tile-content>
+          </v-list-tile>
+        </v-card>
+        <v-card class="mx-2 mb-4" color="cyan">
+          <v-list-tile>
+            <v-list-tile-content>
+              <v-list-tile-title v-html="info.text"></v-list-tile-title>
+            </v-list-tile-content>
+          </v-list-tile>
+        </v-card>
+        <v-card class="mx-2 mb-2" color="blue">
+          <v-card-title class="py-0">画像一覧
+            <v-spacer></v-spacer>
+            <v-text-field
+              v-model="search"
+              append-icon="search"
+              label="フリーワード"
+              single-line
+              hide-details
+            ></v-text-field>
+            <v-spacer></v-spacer>
+            <v-select :items="terms" box label="時間帯" height="40px" hide-details></v-select>
+            <v-spacer></v-spacer>
+            <v-btn color="blue" @click="searchConditionClick">詳細検索＋</v-btn>
+            <v-btn icon>
+              <v-icon>refresh</v-icon>
+            </v-btn>
+          </v-card-title>
+          <v-layout>
+            <v-flex xs12 sm6 lg12>
+              <v-card color="orange" class="px-2" infinite-wrapper>
+                <v-container v-bind="{ [`grid-list-lg`]: true }" fluid class="pa-1">
+                  <v-layout row wrap>
+                    <v-flex v-for="(picture,i) in pictures" :key="i" xs2>
+                      <v-card flat tile min-width="150px">
+                        <v-img
+                          :src="`https://unsplash.it/150/300?image=${Math.floor(Math.random() * 100) + 1}`"
+                          height="150px"
+                          @click="pictureRowClick"
+                        ></v-img>
+                        <v-card-title
+                          primary-title
+                          align="left"
+                          class="pa-2"
+                          @click="pictureRowClick"
+                        >
+                          <div>
+                            <div>{{ picture.title }}</div>
+                            <!--
+                            <div>{{ picture.caption }}</div>
+                            <div>{{ picture.recvDate }}</div>
+                            <div>{{ picture.pictureNo }}</div>
+                            -->
+                          </div>
+                        </v-card-title>
+                      </v-card>
+                    </v-flex>
+                  </v-layout>
+                  <infinite-loading
+                    slot="append"
+                    @infinite="pictureHandler"
+                    force-use-infinite-wrapper
+                  ></infinite-loading>
+                </v-container>
+              </v-card>
+            </v-flex>
+          </v-layout>
+        </v-card>
+      </v-flex>
+    </v-layout>
+  </v-container>
+</template>
+
+<script>
+import draggable from 'vuedraggable';
+import infiniteLoading from 'vue-infinite-loading';
+import axios from 'axios';
+
+import pictureDetail from '../components/pictureDetail';
+import searchCondition from '../components/searchCondition';
+
+export default {
+  layout: 'default',
+  components: {
+    draggable,
+    'picture-detail': pictureDetail,
+    'search-condition': searchCondition,
+    'infinite-loading': infiniteLoading
+  },
+  computed: {
+    pictures () {
+      return this.$store.state.pictures.pictures
+    }
+  },
+  data: () => ({
+    dialog: false,
+    search: '',
+    date: '',
+    switch: '',
+    drawer: null,
+    switch_view: true,
+    switch_flush: true,
+    switch_info: true,
+    text_main: 'small',
+    text_flush: 'small',
+    text_info: 'small',
+    text_contents: 'small',
+    sub_1s: [['政治・経済', 'folder'], ['海外', 'folder']],
+    sub_2s: [['写真', 'folder'], ['グラフィック', 'folder']],
+    sub_3s: [['マスメFAX', 'folder'], ['選挙CSV', 'folder']],
+    sub_4s: [
+      ['フィーチャー', 'folder'],
+      ['シニア', 'folder'],
+      ['メディカル', 'folder'],
+      ['解説特信', 'folder'],
+      ['新年企画', 'folder'],
+      ['お知らせ', 'folder']
+    ],
+    terms: ['６時間以内', '当日', '３時間以内'],
+    flush: {
+      text:
+        '01/22 15:38 外信◎速報　ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の「RECAIUS 音声合成ミドルウェア ToSpeak™」が採用'
+    },
+    info: {
+      text:
+        '01/22 16:11 ◎差し替え連絡　【０２０１３０５２３ＳＡ　１７　　　】　【Ｊ３Ｂ２１７０ＳＡ　１７　　　】【政治◎首相動静１６】の記事を差し替えました'
+    },
+    headers: [
+      { text: '記事番号', value: 'articleNo' },
+      { text: '登録日時', value: 'recvDate' },
+      { text: '見出し', value: 'title' },
+      { text: 'ジャンル', value: 'genre' }
+    ],
+    contents: [
+      {
+        articleNo: '20190130AB 30   ',
+        recvDate: '19/01/30 09:30',
+        title:
+          'ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の',
+        genre: '社会'
+      },
+      {
+        articleNo: '20190130AC 30   ',
+        recvDate: '19/01/30 09:22',
+        title: 'マレーシア・超々臨界圧火力発電所において初並列を達成',
+        genre: '海外'
+      },
+      {
+        articleNo: '20190130AB 30   ',
+        recvDate: '19/01/30 09:20',
+        title:
+          'AIがFAQの作成・更新をサポート！「RECAIUS ナレッジエディタ」を提供開始',
+        genre: '社会'
+      },
+      {
+        articleNo: '20190130AB 30   ',
+        recvDate: '19/01/30 09:11',
+        title: 'ITシステム刷新に向けた人材強化について',
+        genre: '社会'
+      },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 09:10",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 08:50",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 08:50",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 08:50",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 08:50",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      // {
+      //   articleNo: "20190130AB 30   ",
+      //   recvDate: "19/01/30 08:50",
+      //   title:
+      //     "ソースネクストのAI通訳機「POCKETALK®（ポケトーク）W」の日本語音声の新エンジンに東芝の",
+      //   genre: "社会"
+      // },
+      {
+        articleNo: '20190130AB 30   ',
+        recvDate: '19/01/30 09:39',
+        title:
+          '[STORY]工場にアカテガニがやってきた！～生物多様性保全への取り組み～',
+        genre: '社会'
+      }
+    ],
+    /*
+    pictures: [
+      {
+        title: 'タイトル１タイトル１タイトル１',
+        caption: 'キャプション１',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル２タイトル２タイトル２',
+        caption: 'キャプション２',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル３タイトル３タイトル３',
+        caption: 'キャプション３',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル４タイトル４タイトル４',
+        caption: 'キャプション４',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル５タイトル５タイトル５',
+        caption: 'キャプション５',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル６タイトル６タイトル６',
+        caption: 'キャプション６',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル７タイトル７タイトル７',
+        caption: 'キャプション７',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル８タイトル８タイトル８',
+        caption: 'キャプション８',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル９タイトル９タイトル９',
+        caption: 'キャプション９',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル１０タイトル１０タイトル１０',
+        caption: 'キャプション１０',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      },
+      {
+        title: 'タイトル１１タイトル１１タイトル１１',
+        caption: 'キャプション１１',
+        recvDate: '19/01/30',
+        pictureNo: '19AT55'
+      }
+    ],
+    */
+    headers_in_use: [
+      { text: '記事番号', value: 'articleNo' },
+      { text: '登録日時', value: 'recvDate' },
+      { text: '見出し', value: 'title' },
+      { text: 'ジャンル', value: 'genre' }
+    ],
+    headers_not_in_use: []
+  }),
+  props: {
+    source: String
+  },
+  methods: {
+    articleRowClick: function () {
+      this.$refs.articleDetail.show()
+    },
+    pictureRowClick: function () {
+      this.$refs.pictureDetail.show()
+    },
+    searchConditionClick: function () {
+      this.$refs.searchCondition.show()
+    },
+    pictureHandler ($state) {
+      axios.get('/api/masume/pictures/').then(({ data }) => {
+        if (data.length) {
+          this.$store.commit('pictures/add', data)
+          $state.loaded()
+        } else {
+          $state.complete()
+        }
+      })
+    }
+  }
+}
+</script>
+
+<style lang="stylus">
+#keep {
+  .v-navigation-drawer__border {
+    display: none;
+  }
+}
+
+.v-text-field--box .v-input__slot, .v-text-field--outline .v-input__slot {
+  min-height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.v-card .orange {
+  min-height: 500px;
+  max-height: 500px;
+  overflow-y: scroll;
+}
+</style>
